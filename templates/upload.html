@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>実験データ管理システム (試作)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        form { background-color: #f4f4f4; padding: 20px; border-radius: 8px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="date"], input[type="file"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>実験データ管理システム (試作)</h1>
+    <h2>データのアップロード</h2>
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <h3>メタデータ入力</h3>
+        <label for="experiment_device">実験装置名:</label>
+        <input type="text" id="experiment_device" name="experiment_device" required><br><br>
+
+        <label for="sample_name">サンプル名:</label>
+        <input type="text" id="sample_name" name="sample_name" required><br><br>
+
+        <label for="experiment_date">日付:</label>
+        <input type="date" id="experiment_date" name="experiment_date" required><br><br>
+
+        <h3>実験データファイル (.xlsx, .csv)</h3>
+        <label for="file">データファイルを選択してください:</label>
+        <input type="file" id="file" name="file" accept=".xlsx,.csv" required><br><br>
+
+        <input type="submit" value="データ登録">
+    </form>
+</body>
+</html>

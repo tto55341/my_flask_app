@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>実験データ一覧</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .button-container { margin-top: 20px; margin-bottom: 20px; } /* 間隔調整 */
+        .button-container a {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-right: 10px;
+        }
+        .button-container a:hover {
+            background-color: #0056b3;
+        }
+        /* 検索フォームのスタイル */
+        .search-form {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex; /* 横並びにする */
+            gap: 10px; /* 要素間の隙間 */
+            align-items: center; /* 垂直方向中央揃え */
+        }
+        .search-form label {
+            font-weight: bold;
+        }
+        .search-form input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex-grow: 1; /* 入力欄が広がるように */
+            max-width: 200px; /* 最大幅を設定 */
+        }
+        .search-form button {
+            background-color: #28a745;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .search-form button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <h1>実験データ一覧</h1>
+
+    <div class="button-container">
+        <a href="/">新しいデータをアップロード</a>
+    </div>
+
+    <div class="search-form">
+        <form method="GET" action="/data">
+            <label for="search_device">実験装置名:</label>
+            <input type="text" id="search_device" name="search_device" value="{{ search_device if search_device else '' }}">
+            
+            <label for="search_sample">サンプル名:</label>
+            <input type="text" id="search_sample" name="search_sample" value="{{ search_sample if search_sample else '' }}">
+            
+            <button type="submit">検索</button>
+        </form>
+    </div>
+    {% if experiments %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>実験装置名</th>
+                <th>サンプル名</th>
+                <th>日付</th>
+                <th>ファイル名</th>
+                <th>アップロード日時</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for experiment in experiments %}
+            <tr>
+                <td>{{ experiment.id }}</td>
+                <td>{{ experiment.device_name }}</td>
+                <td>{{ experiment.sample_name }}</td>
+                <td>{{ experiment.experiment_date }}</td>
+                <td>{{ experiment.file_name }}</td>
+                <td>{{ experiment.uploaded_at }}</td>
+                <td>
+                    <a href="{{ url_for('download_file', experiment_id=experiment.id) }}">ダウンロード</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>まだデータが登録されていません。</p>
+    {% endif %}
+</body>
+</html>
