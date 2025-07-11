@@ -1,9 +1,16 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session # flash, session を追加
 import os
 from datetime import datetime
 import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash # これを追加
 
 app = Flask(__name__)
+# --- ここから追加 ---
+# セッションで利用する秘密鍵（ランダムな文字列に設定してください）
+# 本番環境では環境変数などから読み込むのが安全です
+app.config['SECRET_KEY'] = os.urandom(24).hex()
+# --- ここまで追加 ---
+
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
@@ -23,41 +30,83 @@ def init_db():
             db.executescript(f.read())
         db.commit()
 
+# --- ここから追加：ユーザーテーブルの初期化とユーザー登録関数 ---
+def init_user_db():
+    with app.app_context():
+        db = get_db()
+        # usersテーブルが存在しない場合のみ作成
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            );
+        ''')
+        db.commit()
+
+def add_admin_user(username, password):
+    # 管理ユーザーを追加する関数
+    with app.app_context():
+        db = get_db()
+        # パスワードをハッシュ化
+        hashed_password = generate_password_hash(password)
+        try:
+            db.execute(
+                'INSERT INTO users (username, password) VALUES (?, ?)',
+                (username, hashed_password)
+            )
+            db.commit()
+            print(f"ユーザー '{username}' が正常に登録されました。")
+        except sqlite3.IntegrityError:
+            print(f"ユーザー名 '{username}' は既に存在します。")
+        db.close()
+# --- ここまで追加 ---
+
 @app.route('/')
 def index():
     return render_template('upload.html')
 
 @app.route('/data')
 def data_list():
-    db = get_db()
-    # --- ここから修正（検索条件の取得とSQLクエリの変更） ---
-    search_device = request.args.get('search_device', '') # 検索フォームから実験装置名を取得
-    search_sample = request.args.get('search_sample', '') # 検索フォームからサンプル名を取得
+    # --- ここから修正：ログインチェック（後で完全な実装を追加） ---
+    # if not session.get('logged_in'):
+    #     flash('ログインが必要です。')
+    #     return redirect(url_for('login'))
+    # --- ここまで修正 ---
 
-    query = 'SELECT * FROM experiments WHERE 1=1' # 常にTrueの条件で開始
+    db = get_db()
+    search_device = request.args.get('search_device', '')
+    search_sample = request.args.get('search_sample', '')
+
+    query = 'SELECT * FROM experiments WHERE 1=1'
     params = []
 
     if search_device:
-        query += ' AND device_name LIKE ?' # 実験装置名で絞り込み
-        params.append(f'%{search_device}%') # 部分一致検索のため % を追加
+        query += ' AND device_name LIKE ?'
+        params.append(f'%{search_device}%')
 
     if search_sample:
-        query += ' AND sample_name LIKE ?' # サンプル名で絞り込み
-        params.append(f'%{search_sample}%') # 部分一致検索のため % を追加
+        query += ' AND sample_name LIKE ?'
+        params.append(f'%{search_sample}%')
 
-    query += ' ORDER BY uploaded_at DESC' # 結果を新しいもの順に並び替え
+    query += ' ORDER BY uploaded_at DESC'
 
     experiments = db.execute(query, params).fetchall()
     db.close()
-    # --- ここまで修正 ---
 
     return render_template('data_list.html', 
                            experiments=experiments,
-                           search_device=search_device, # 検索フォームに値を保持するため渡す
-                           search_sample=search_sample) # 検索フォームに値を保持するため渡す
+                           search_device=search_device,
+                           search_sample=search_sample)
 
 @app.route('/download/<int:experiment_id>')
 def download_file(experiment_id):
+    # --- ここから修正：ログインチェック（後で完全な実装を追加） ---
+    # if not session.get('logged_in'):
+    #     flash('ログインが必要です。')
+    #     return redirect(url_for('login'))
+    # --- ここまで修正 ---
+
     db = get_db()
     experiment = db.execute('SELECT file_name, file_path FROM experiments WHERE id = ?', (experiment_id,)).fetchone()
     db.close()
@@ -78,6 +127,12 @@ def download_file(experiment_id):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    # --- ここから修正：ログインチェック（後で完全な実装を追加） ---
+    # if not session.get('logged_in'):
+    #     flash('ログインが必要です。')
+    #     return redirect(url_for('login'))
+    # --- ここまで修正 ---
+
     if request.method == 'POST':
         experiment_device = request.form['experiment_device']
         sample_name = request.form['sample_name']
@@ -120,7 +175,15 @@ def upload_file():
 
 if __name__ == '__main__':
     if not os.path.exists(DATABASE):
-        init_db()
-    # 修正前: app.run(debug=True)
-    # 修正後:
-    app.run(debug=True, host='0.0.0.0') # ホストを '0.0.0.0' に変更
+        init_db() # 実験データ用DBの初期化
+    
+    init_user_db() # ユーザー用DBの初期化（usersテーブル作成）
+
+    # 管理ユーザーを登録したい場合に一度だけ実行する
+    # ユーザー名とパスワードをここに直接記述するのはセキュリティ上良くないですが、
+    # 試作段階ではこのように手動で実行するのが最も簡単です。
+    # 登録後は以下の2行をコメントアウトするか削除してください。
+    # add_admin_user('tto', '55341') # あなたの好きなユーザー名とパスワードを設定
+    # print("注意: 管理ユーザー登録スクリプトをコメントアウトするか削除してください。")
+
+    app.run(debug=True)
