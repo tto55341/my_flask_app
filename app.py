@@ -1,15 +1,13 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session # flash, session を追加
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session
 import os
 from datetime import datetime
 import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash # これを追加
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-# --- ここから追加 ---
 # セッションで利用する秘密鍵（ランダムな文字列に設定してください）
 # 本番環境では環境変数などから読み込むのが安全です
-app.config['SECRET_KEY'] = os.urandom(24).hex()
-# --- ここまで追加 ---
+app.config['SECRET_KEY'] = os.urandom(24).hex() # これで正しいです
 
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -30,11 +28,9 @@ def init_db():
             db.executescript(f.read())
         db.commit()
 
-# --- ここから追加：ユーザーテーブルの初期化とユーザー登録関数 ---
 def init_user_db():
     with app.app_context():
         db = get_db()
-        # usersテーブルが存在しない場合のみ作成
         db.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,10 +41,8 @@ def init_user_db():
         db.commit()
 
 def add_admin_user(username, password):
-    # 管理ユーザーを追加する関数
     with app.app_context():
         db = get_db()
-        # パスワードをハッシュ化
         hashed_password = generate_password_hash(password)
         try:
             db.execute(
@@ -60,18 +54,45 @@ def add_admin_user(username, password):
         except sqlite3.IntegrityError:
             print(f"ユーザー名 '{username}' は既に存在します。")
         db.close()
-# --- ここまで追加 ---
+
 
 @app.route('/')
 def index():
     return render_template('upload.html')
 
+# --- ログイン関連のルートはここに追加します ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        db = get_db()
+        user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        db.close()
+
+        if user and check_password_hash(user['password'], password):
+            session['logged_in'] = True # セッションにログイン状態を記録
+            flash('ログインしました！') # ユーザーへのメッセージ
+            return redirect(url_for('data_list')) # ログイン後、データ一覧ページへリダイレクト
+        else:
+            flash('ユーザー名またはパスワードが間違っています。') # エラーメッセージ
+    return render_template('login.html') # GETリクエストまたは認証失敗時にログインフォームを表示
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None) # セッションからログイン状態を削除
+    flash('ログアウトしました。')
+    return redirect(url_for('login')) # ログアウト後、ログインページへリダイレクト
+# --- ログイン関連のルートはここまで ---
+
+
 @app.route('/data')
 def data_list():
-    # --- ここから修正：ログインチェック（後で完全な実装を追加） ---
-    # if not session.get('logged_in'):
-    #     flash('ログインが必要です。')
-    #     return redirect(url_for('login'))
+    # --- ログインチェックを有効化 ---
+    if not session.get('logged_in'):
+        flash('ログインが必要です。')
+        return redirect(url_for('login'))
     # --- ここまで修正 ---
 
     db = get_db()
@@ -101,10 +122,10 @@ def data_list():
 
 @app.route('/download/<int:experiment_id>')
 def download_file(experiment_id):
-    # --- ここから修正：ログインチェック（後で完全な実装を追加） ---
-    # if not session.get('logged_in'):
-    #     flash('ログインが必要です。')
-    #     return redirect(url_for('login'))
+    # --- ログインチェックを有効化 ---
+    if not session.get('logged_in'):
+        flash('ログインが必要です。')
+        return redirect(url_for('login'))
     # --- ここまで修正 ---
 
     db = get_db()
@@ -127,10 +148,10 @@ def download_file(experiment_id):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    # --- ここから修正：ログインチェック（後で完全な実装を追加） ---
-    # if not session.get('logged_in'):
-    #     flash('ログインが必要です。')
-    #     return redirect(url_for('login'))
+    # --- ログインチェックを有効化 ---
+    if not session.get('logged_in'):
+        flash('ログインが必要です。')
+        return redirect(url_for('login'))
     # --- ここまで修正 ---
 
     if request.method == 'POST':
@@ -186,4 +207,4 @@ if __name__ == '__main__':
     # add_admin_user('tto', '55341') # あなたの好きなユーザー名とパスワードを設定
     # print("注意: 管理ユーザー登録スクリプトをコメントアウトするか削除してください。")
 
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0') #公開設定の変更
