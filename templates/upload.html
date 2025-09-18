@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>実験データ管理システム (試作)</title>
+    <title>実験データ管理システム</title>
+    <!-- CSSスタイルシート -->
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         h1 { color: #333; }
@@ -28,13 +29,49 @@
         input[type="submit"]:hover {
             background-color: #0056b3;
         }
+        /* リンクコンテナのスタイルを追加 */
+        .link-container {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .link-container a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .link-container a:hover {
+            text-decoration: underline;
+        }
+        /* メッセージ表示エリアのスタイルを追加 */
+        .flash-message {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <h1>実験データ管理システム (試作)</h1>
+    <h1>実験データ管理システム</h1>
+    
+    <!-- フラッシュメッセージの表示 -->
+    <!-- `app.py`のflash関数で送られたメッセージがあれば表示 -->
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <ul class="flash-message">
+        {% for message in messages %}
+            <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+    {% endwith %}
+
     <h2>データのアップロード</h2>
 
-    <form action="/upload" method="post" enctype="multipart/form-data">
+    <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
         <h3>メタデータ入力</h3>
         <label for="experiment_device">実験装置名:</label>
         <input type="text" id="experiment_device" name="experiment_device" required><br><br>
@@ -51,5 +88,13 @@
 
         <input type="submit" value="データ登録">
     </form>
+    
+    <!-- ログイン後のナビゲーションリンク -->
+    <!-- app.pyの各関数に紐づいたURLを生成している -->
+    <div class="link-container">
+        <a href="{{ url_for('data_list') }}">データ一覧へ</a>
+        <a href="{{ url_for('logout') }}">ログアウト</a>
+    </div>
+
 </body>
 </html>
