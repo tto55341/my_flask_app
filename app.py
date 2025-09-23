@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+import pandas as pd
 
 # ====================================================
 # 1. アプリケーションの初期設定
@@ -221,6 +222,34 @@ def upload_file():
 
             return redirect(url_for('data_list'))
     return "アップロードエラー", 400
+
+# データ分析機能
+@app.route('/analyze', methods=['GET', 'POST'])
+def analyze_data():
+    # ログインチェック：ログインしていない場合はログインページへ
+    if not session.get('logged_in'):
+        flash('ログインが必要です。')
+        return redirect(url_for('login'))
+
+    # 初期表示（GETリクエスト）または分析処理後の表示
+    if request.method == 'GET':
+        return render_template('analyze.html')
+    
+    # POSTリクエスト（フォームが送信された場合）の処理
+    elif request.method == 'POST':
+        device_name = request.form.get('device_name', '')
+        sample_name = request.form.get('sample_name', '')
+
+        flash(f"分析条件: 実験装置名='{device_name}', サンプル名='{sample_name}'")
+        
+        # 仮の分析結果（実際はここでデータベースからデータを読み込み、Pandasで処理する）
+        analysis_result = {
+            'message': 'まだ分析ロジックは実装されていませんが、条件は受け取りました。',
+            'device': device_name,
+            'sample': sample_name
+        }
+        
+        return render_template('analyze.html', analysis_result=analysis_result)
 
 # ====================================================
 # 4. アプリケーションの実行設定

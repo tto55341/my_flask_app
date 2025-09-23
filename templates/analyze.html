@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データ分析</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .form-container { background-color: #f4f4f4; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="date"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .link-container {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .link-container a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .link-container a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>データ分析</h1>
+    
+    <div class="form-container">
+        <h2>分析データの抽出条件</h2>
+        <form action="{{ url_for('analyze_data') }}" method="post">
+            <label for="device_name">実験装置名:</label>
+            <input type="text" id="device_name" name="device_name"><br><br>
+
+            <label for="sample_name">サンプル名:</label>
+            <input type="text" id="sample_name" name="sample_name"><br><br>
+
+            <button type="submit">データ分析開始</button>
+        </form>
+    </div>
+
+    <div id="analysis-results">
+        </div>
+    
+    <div class="link-container">
+        <a href="{{ url_for('index') }}">アップロード画面へ</a>
+        <a href="{{ url_for('data_list') }}">データ一覧へ</a>
+        <a href="{{ url_for('logout') }}">ログアウト</a>
+    </div>
+
+</body>
+</html>
