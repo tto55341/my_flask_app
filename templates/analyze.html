@@ -40,11 +40,50 @@
         .link-container a:hover {
             text-decoration: underline;
         }
+
+        /* Flashメッセージのスタイルを追加 */
+        .flash-message-container {
+            list-style: none; /* リストの点線を消す */
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .flash-message-container li {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .flash-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
     </style>
 </head>
 <body>
     <h1>データ分析</h1>
     
+    {# FlaskのFlashメッセージ表示エリア #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <ul class="flash-message-container">
+        {% for category, message in messages %}
+            <li class="flash-{{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+    {% endwith %}
+
     <div class="form-container">
         <h2>分析データの抽出条件</h2>
         <form action="{{ url_for('analyze_data') }}" method="post">
@@ -59,7 +98,35 @@
     </div>
 
     <div id="analysis-results">
-        </div>
+        {% if analysis_result %}
+            <h2>分析結果</h2>
+            <p>{{ analysis_result.message }}</p>
+            
+            {# 統計情報と最初の5行の表示 #}
+            {% if analysis_result.head %}
+                <h3>結合データの最初の5行</h3>
+                {{ analysis_result.head | safe }}
+            {% endif %}
+            {% if analysis_result.description %}
+                <h3>統計情報</h3>
+                {{ analysis_result.description | safe }}
+            {% endif %}
+
+            {# グラフ表示 #}
+            {% if analysis_result.plots %}
+                <h3>データ可視化</h3>
+                {% for plot_name, plot_base64 in analysis_result.plots.items() %}
+                    <div>
+                        <h4>{{ plot_name }}</h4>
+                        <img src="data:image/png;base64,{{ plot_base64 }}" alt="{{ plot_name }}" style="max-width: 100%; height: auto;">
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+        {% else %}
+            <p>分析データがありません。</p>
+        {% endif %}
+    </div>
     
     <div class="link-container">
         <a href="{{ url_for('index') }}">アップロード画面へ</a>

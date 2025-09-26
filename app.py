@@ -223,32 +223,76 @@ def upload_file():
             return redirect(url_for('data_list'))
     return "アップロードエラー", 400
 
-# データ分析機能
+# データ分析ページの設定
 @app.route('/analyze', methods=['GET', 'POST'])
 def analyze_data():
-    # ログインチェック：ログインしていない場合はログインページへ
     if not session.get('logged_in'):
         flash('ログインが必要です。')
         return redirect(url_for('login'))
 
-    # 初期表示（GETリクエスト）または分析処理後の表示
+    # GETリクエストの場合、フォームを初期表示
     if request.method == 'GET':
         return render_template('analyze.html')
     
-    # POSTリクエスト（フォームが送信された場合）の処理
+    # POSTリクエストの場合、分析ロジックを実行
     elif request.method == 'POST':
         device_name = request.form.get('device_name', '')
         sample_name = request.form.get('sample_name', '')
 
-        flash(f"分析条件: 実験装置名='{device_name}', サンプル名='{sample_name}'")
+        db = get_db()
+        query = "SELECT * FROM experiments WHERE device_name LIKE ? AND sample_name LIKE ?"
+        params = [f"%{device_name}%", f"%{sample_name}%"]
         
-        # 仮の分析結果（実際はここでデータベースからデータを読み込み、Pandasで処理する）
-        analysis_result = {
-            'message': 'まだ分析ロジックは実装されていませんが、条件は受け取りました。',
-            'device': device_name,
-            'sample': sample_name
-        }
+        experiments = db.execute(query, params).fetchall()
+        db.close()
         
+        all_data_frames = [] # 複数のデータフレームを一時的に格納するリスト
+        
+        if experiments:
+            for exp in experiments:
+                file_path = exp['file_path'] # データベースからファイルパスを取得
+                try:
+                    # ファイルの拡張子に基づいて読み込み方法を判断
+                    if file_path.endswith('.xlsx'):
+                        df = pd.read_excel(file_path)
+                    elif file_path.endswith('.csv'):
+                        try:
+                            df = pd.read_csv(file_path, encoding='shift_jis')
+                        except UnicodeDecodeError:
+                            try:
+                                df = pd.read_csv(file_path, encoding='cp932')
+                            except UnicodeDecodeError:
+                                df = pd.read_csv(file_path, encoding='utf-8')
+                    else:
+                        flash(f"未対応のファイル形式: {file_path}", "warning")
+                        continue # 次のファイルへ
+
+                    all_data_frames.append(df) # 読み込んだデータフレームをリストに追加
+
+                except FileNotFoundError:
+                    flash(f"エラー: ファイルが見つかりません - {file_path}", "error")
+                except Exception as e:
+                    flash(f"エラー: ファイル '{file_path}' の読み込み中に問題が発生しました - {e}", "error")
+            
+            # すべてのデータフレームを結合
+            if all_data_frames:
+                combined_df = pd.concat(all_data_frames, ignore_index=True)
+                flash(f"すべてのファイルを結合しました。総データ件数: {len(combined_df)}", "success")
+
+                # ここで結合されたcombined_dfを使った分析ロジックが続く
+                # とりあえず、結合データの最初の5行と統計情報を表示してみる
+                analysis_result = {
+                    'message': 'データ結合が成功しました。',
+                    'head': combined_df.head().to_html(classes='table table-striped'), # 最初の5行をHTMLテーブル形式で
+                    'description': combined_df.describe().to_html(classes='table table-striped') # 統計情報をHTMLテーブル形式で
+                }
+            else:
+                flash("条件に一致するファイルを読み込めませんでした。", "error")
+                analysis_result = {'message': 'ファイル読み込み失敗'}
+        else:
+            flash("条件に一致する実験データが見つかりませんでした。", "error")
+            analysis_result = {'message': 'データなし'}
+
         return render_template('analyze.html', analysis_result=analysis_result)
 
 # ====================================================
