@@ -1,138 +1,99 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>データ分析</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        .form-container { background-color: #f4f4f4; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], input[type="date"] {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #28a745;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #218838;
-        }
-        .link-container {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-        }
-        .link-container a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .link-container a:hover {
-            text-decoration: underline;
-        }
+{% extends 'base.html' %}
 
-        /* Flashメッセージのスタイルを追加 */
-        .flash-message-container {
-            list-style: none; /* リストの点線を消す */
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-        }
-        .flash-message-container li {
-            padding: 8px 12px;
-            margin-bottom: 5px;
-            border-radius: 4px;
-        }
-        .flash-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .flash-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .flash-warning {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
-        }
-    </style>
-</head>
-<body>
+{% block title %}データ分析{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
     <h1>データ分析</h1>
-    
-    {# FlaskのFlashメッセージ表示エリア #}
+
     {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <ul class="flash-message-container">
-        {% for category, message in messages %}
-            <li class="flash-{{ category }}">{{ message }}</li>
-        {% endfor %}
-        </ul>
-    {% endif %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
     {% endwith %}
 
-    <div class="form-container">
-        <h2>分析データの抽出条件</h2>
-        <form action="{{ url_for('analyze_data') }}" method="post">
-            <label for="device_name">実験装置名:</label>
-            <input type="text" id="device_name" name="device_name"><br><br>
-
-            <label for="sample_name">サンプル名:</label>
-            <input type="text" id="sample_name" name="sample_name"><br><br>
-
-            <button type="submit">データ分析開始</button>
-        </form>
-    </div>
-
-    <div id="analysis-results">
-        {% if analysis_result %}
-            <h2>分析結果</h2>
-            <p>{{ analysis_result.message }}</p>
-            
-            {# 統計情報と最初の5行の表示 #}
-            {% if analysis_result.head %}
-                <h3>結合データの最初の5行</h3>
-                {{ analysis_result.head | safe }}
-            {% endif %}
-            {% if analysis_result.description %}
-                <h3>統計情報</h3>
-                {{ analysis_result.description | safe }}
-            {% endif %}
-
-            {# グラフ表示 #}
-            {% if analysis_result.plots %}
-                <h3>データ可視化</h3>
-                {% for plot_name, plot_base64 in analysis_result.plots.items() %}
-                    <div>
-                        <h4>{{ plot_name }}</h4>
-                        <img src="data:image/png;base64,{{ plot_base64 }}" alt="{{ plot_name }}" style="max-width: 100%; height: auto;">
+    {# 機械学習モデルによる予測フォームと結果表示エリア #}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>LM(2002)モデルに基づくG' / G'' 予測 (機械学習)</h3>
+        </div>
+        <div class="card-body">
+            {% if ml_error %}
+                <div class="alert alert-danger">
+                    {{ get_flashed_messages(category_filter=['error'])[0] if get_flashed_messages(category_filter=['error']) else "機械学習モデルがロードされていません。管理者にお問い合わせください。" }}
+                </div>
+            {% else %}
+                <form action="{{ url_for('analyze_data') }}" method="post" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="predict_z_value" class="form-label">Z 値:</label>
+                        <input type="number" step="any" class="form-control" id="predict_z_value" name="predict_z_value" required value="{{ request.form.get('predict_z_value', '') }}">
+                        <div class="invalid-feedback">
+                            Z値を入力してください。
+                        </div>
                     </div>
-                {% endfor %}
+                    <div class="mb-3">
+                        <label for="predict_omega_value" class="form-label">無次元化周波数 (ωτe):</label>
+                        <input type="number" step="any" class="form-control" id="predict_omega_value" name="predict_omega_value" required value="{{ request.form.get('predict_omega_value', '') }}">
+                        <div class="invalid-feedback">
+                            無次元化周波数を入力してください。
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" name="predict_ml">予測実行</button>
+                    {# hidden input は、もし複数のフォームがある場合に、どのボタンが押されたかを app.py 側で判別するために使われることがあるが、今回は predict_ml ボタンの name 属性で識別可能 #}
+                </form>
+
+                {% if prediction_results %}
+                    <h4 class="mt-4">予測結果:</h4>
+                    <p><strong>入力Z値:</strong> {{ prediction_results.input_z }}</p>
+                    <p><strong>入力無次元化周波数 (ωτe):</strong> {{ prediction_results.input_omega }}</p>
+                    <p><strong>予測 G' / Ge:</strong> {{ prediction_results.predicted_gp_over_ge }}</p>
+                    <p><strong>予測 G'' / Ge:</strong> {{ prediction_results.predicted_gpp_over_ge }}</p>
+                {% endif %}
             {% endif %}
-
-        {% else %}
-            <p>分析データがありません。</p>
-        {% endif %}
-    </div>
-    
-    <div class="link-container">
-        <a href="{{ url_for('index') }}">アップロード画面へ</a>
-        <a href="{{ url_for('data_list') }}">データ一覧へ</a>
-        <a href="{{ url_for('logout') }}">ログアウト</a>
+        </div>
     </div>
 
-</body>
-</html>
+    {# データベースからの実験データ結合・分析フォームと結果表示エリア #}
+    <div class="card mt-4 mb-4">
+        <div class="card-header">
+            <h3>データベースからの実験データ結合・分析</h3>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('analyze_data') }}" method="post" class="needs-validation" novalidate>
+                <div class="mb-3">
+                    <label for="device_name" class="form-label">実験装置名:</label>
+                    <input type="text" class="form-control" id="device_name" name="device_name" value="{{ request.form.get('device_name', '') }}">
+                </div>
+                <div class="mb-3">
+                    <label for="sample_name" class="form-label">サンプル名:</label>
+                    <input type="text" class="form-control" id="sample_name" name="sample_name" value="{{ request.form.get('sample_name', '') }}">
+                </div>
+                <button type="submit" class="btn btn-info" name="analyze_db">データ結合・分析</button>
+            </form>
+        </div>
+    </div>
+
+    {# 結合されたデータ概要の表示エリア #}
+    {% if analysis_result %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3>結合されたデータ概要</h3>
+            </div>
+            <div class="card-body">
+                <p>{{ analysis_result.message }}</p>
+                {% if analysis_result.head %}
+                    <h4>最初の5行:</h4>
+                    {{ analysis_result.head | safe }}
+                {% endif %}
+                {% if analysis_result.description %}
+                    <h4 class="mt-4">統計情報:</h4>
+                    {{ analysis_result.description | safe }}
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

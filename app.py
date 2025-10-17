@@ -7,6 +7,8 @@ from datetime import datetime
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 import pandas as pd
+import joblib # 機械学習モデルの読み込み用
+import numpy as np # 数値計算用
 
 # ====================================================
 # 1. アプリケーションの初期設定
@@ -26,6 +28,36 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 # データベースファイルの定義
 DATABASE = 'database.db'
+
+# 機械学習モデルとスケーラーの読み込み
+# アプリケーション起動時に一度だけ実行される
+MODEL_DIR = 'trained_models'
+GP_MODEL_PATH = os.path.join(MODEL_DIR, 'lgbm_gp_model.pkl')
+GPP_MODEL_PATH = os.path.join(MODEL_DIR, 'lgbm_gpp_model.pkl')
+SCALER_PATH = os.path.join(MODEL_DIR, 'scaler.pkl')
+
+# モデルとスケーラーをグローバル変数として保持
+# アプリケーション起動時に存在しない場合はエラーを出す
+try:
+    if not os.path.exists(GP_MODEL_PATH) or \
+       not os.path.exists(GPP_MODEL_PATH) or \
+       not os.path.exists(SCALER_PATH):
+        raise FileNotFoundError("機械学習モデルまたはスケーラーファイルが見つかりません。'run.py'を実行してモデルを生成してください。")
+        
+    loaded_gp_model = joblib.load(GP_MODEL_PATH)
+    loaded_gpp_model = joblib.load(GPP_MODEL_PATH)
+    loaded_scaler = joblib.load(SCALER_PATH)
+    print("機械学習モデルとスケーラーを正常に読み込みました。")
+except FileNotFoundError as e:
+    print(f"モデル読み込みエラー: {e}")
+    loaded_gp_model = None
+    loaded_gpp_model = None
+    loaded_scaler = None
+except Exception as e:
+    print(f"モデル読み込み中に予期せぬエラーが発生しました: {e}")
+    loaded_gp_model = None
+    loaded_gpp_model = None
+    loaded_scaler = None
 
 # ====================================================
 # 2. データベースの初期設定
@@ -230,12 +262,17 @@ def analyze_data():
         flash('ログインが必要です。')
         return redirect(url_for('login'))
 
-    # GETリクエストの場合、フォームを初期表示
-    if request.method == 'GET':
-        return render_template('analyze.html')
+    # 機械学習モデルがロードされていない場合はエラーメッセージを表示
+    if loaded_gp_model is None or loaded_gpp_model is None or loaded_scaler is None:
+        flash("エラー: 機械学習モデルが読み込まれていません。管理者にお問い合わせください。", "error")
+        return render_template('analyze.html', ml_error=True)
+
+    prediction_results = {}
+    analysis_result = {} # 既存のデータ結合表示用
     
-    # POSTリクエストの場合、分析ロジックを実行
-    elif request.method == 'POST':
+    if request.method == 'POST':
+        # --- ここから既存のデータ分析・結合ロジック ---
+        # フォームからの入力を取得（既存の分析ページ機能）
         device_name = request.form.get('device_name', '')
         sample_name = request.form.get('sample_name', '')
 
@@ -292,8 +329,41 @@ def analyze_data():
         else:
             flash("条件に一致する実験データが見つかりませんでした。", "error")
             analysis_result = {'message': 'データなし'}
+        # --- ここまで既存のデータ分析・結合ロジック ---
 
-        return render_template('analyze.html', analysis_result=analysis_result)
+
+        # --- ここから機械学習予測ロジックを追加 ---
+        try:
+            # フォームからZとomega_tau_eを取得
+            input_z = float(request.form['predict_z_value'])
+            input_omega = float(request.form['predict_omega_value'])
+
+            # 入力値をnumpy配列に変換し、スケーリング
+            # scalerは2つの特徴量 (Z, omega_tau_e) を期待するので、それに合わせた形状にする
+            input_data = np.array([[input_z, input_omega]])
+            scaled_input_data = loaded_scaler.transform(input_data)
+
+            # モデルで予測
+            predicted_gp_over_ge = loaded_gp_model.predict(scaled_input_data)[0]
+            predicted_gpp_over_ge = loaded_gpp_model.predict(scaled_input_data)[0]
+
+            prediction_results = {
+                'input_z': input_z,
+                'input_omega': input_omega,
+                'predicted_gp_over_ge': f"{predicted_gp_over_ge:.4e}", # 指数表記で表示
+                'predicted_gpp_over_ge': f"{predicted_gpp_over_ge:.4e}" # 指数表記で表示
+            }
+
+        except ValueError:
+            flash("予測のためのZまたはOmegaの値が不正です。数値を入力してください。", "error")
+        except Exception as e:
+            flash(f"予測中にエラーが発生しました: {e}", "error")
+        # --- ここまで機械学習予測ロジック ---
+
+    # GETリクエストの場合、またはPOSTリクエスト後のレンダリング
+    return render_template('analyze.html',
+                           analysis_result=analysis_result,
+                           prediction_results=prediction_results)
 
 # ====================================================
 # 4. アプリケーションの実行設定
