@@ -1,101 +1,58 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>実験データ管理システム</title>
-    <!-- CSSスタイルシート -->
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        form { background-color: #f4f4f4; padding: 20px; border-radius: 8px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], input[type="date"], input[type="file"] {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        input[type="submit"] {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        input[type="submit"]:hover {
-            background-color: #0056b3;
-        }
-        /* リンクコンテナのスタイルを追加 */
-        .link-container {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-        }
-        .link-container a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .link-container a:hover {
-            text-decoration: underline;
-        }
-        /* メッセージ表示エリアのスタイルを追加 */
-        .flash-message {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block title %}データのアップロード{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
     <h1>実験データ管理システム</h1>
-    
-    <!-- フラッシュメッセージの表示 -->
-    <!-- `app.py`のflash関数で送られたメッセージがあれば表示 -->
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-        <ul class="flash-message">
-        {% for message in messages %}
-            <li>{{ message }}</li>
-        {% endfor %}
-        </ul>
-    {% endif %}
+
+    {# フラッシュメッセージの表示 #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
     {% endwith %}
 
     <h2>データのアップロード</h2>
 
-    <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+    <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
         <h3>メタデータ入力</h3>
-        <label for="experiment_device">実験装置名:</label>
-        <input type="text" id="experiment_device" name="experiment_device" required><br><br>
+        <div class="mb-3">
+            <label for="experiment_device" class="form-label">実験装置名:</label>
+            <input type="text" class="form-control" id="experiment_device" name="experiment_device" required>
+            <div class="invalid-feedback">
+                実験装置名を入力してください。
+            </div>
+        </div>
 
-        <label for="sample_name">サンプル名:</label>
-        <input type="text" id="sample_name" name="sample_name" required><br><br>
+        <div class="mb-3">
+            <label for="sample_name" class="form-label">サンプル名:</label>
+            <input type="text" class="form-control" id="sample_name" name="sample_name" required>
+            <div class="invalid-feedback">
+                サンプル名を入力してください。
+            </div>
+        </div>
 
-        <label for="experiment_date">日付:</label>
-        <input type="date" id="experiment_date" name="experiment_date" required><br><br>
+        <div class="mb-3">
+            <label for="experiment_date" class="form-label">日付:</label>
+            <input type="date" class="form-control" id="experiment_date" name="experiment_date" required>
+            <div class="invalid-feedback">
+                日付を入力してください。
+            </div>
+        </div>
 
         <h3>実験データファイル (.xlsx, .csv)</h3>
-        <label for="file">データファイルを選択してください:</label>
-        <input type="file" id="file" name="file" accept=".xlsx,.csv" required><br><br>
+        <div class="mb-3">
+            <label for="file" class="form-label">データファイルを選択してください:</label>
+            <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.csv" required>
+            <div class="invalid-feedback">
+                データファイルを選択してください。
+            </div>
+        </div>
 
-        <input type="submit" value="データ登録">
+        <button type="submit" class="btn btn-primary">データ登録</button>
     </form>
-    
-    <!-- ログイン後のナビゲーションリンク -->
-    <!-- app.pyの各関数に紐づいたURLを生成している -->
-    <div class="link-container">
-        <a href="{{ url_for('data_list') }}">データ一覧へ</a>
-        <a href="{{ url_for('analyze_data') }}">データ分析へ</a>
-        <a href="{{ url_for('logout') }}">ログアウト</a>
-    </div>
-
-</body>
-</html>
+</div>
+{% endblock %}
